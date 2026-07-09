@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Client officiel HashiCorp Vault pour .NET : gère l'authentification
+         et la lecture/écriture de secrets (KV v2 ici). -->
+    <PackageReference Include="VaultSharp" Version="1.13.0.1" />
+    <!-- Swagger (UI + génération OpenAPI), activé uniquement en Development. -->
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+
+</Project>

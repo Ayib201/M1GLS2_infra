@@ -1,0 +1,6 @@
+@M1GLS2_infra_HostAddress = http://localhost:5262
+
+GET {{M1GLS2_infra_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

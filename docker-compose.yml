@@ -1,0 +1,95 @@
+services:
+  # ---------------------------------------------------------------------
+  # HashiCorp Vault — stockage centralisé des secrets (mode "dev")
+  # ---------------------------------------------------------------------
+  vault:
+    image: hashicorp/vault:1.17
+    container_name: vault-dev
+    cap_add:
+      - IPC_LOCK   # Autorise Vault à verrouiller ses pages mémoire (empêche
+                   # que les secrets en RAM soient écrits sur le disque / swap)
+    environment:
+      # Token "root" fixe : en mode dev il n'y a pas de vrai unseal (déverrouillage),
+      # ce token sert directement à s'authentifier. A NE JAMAIS faire en production.
+      VAULT_DEV_ROOT_TOKEN_ID: "dev-only-root-token"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    ports:
+      - "8200:8200"   # exposé sur l'hôte pour pouvoir inspecter Vault (UI/CLI) en démo
+    networks:
+      - infra-network
+
+  # ---------------------------------------------------------------------
+  # Vault-init — dépose le secret de démo dans Vault (dev mode = base vide
+  # à chaque démarrage, il faut donc l'alimenter nous-mêmes une fois prêt)
+  # ---------------------------------------------------------------------
+  vault-init:
+    image: hashicorp/vault:1.17
+    container_name: vault-init
+    depends_on:
+      - vault
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "dev-only-root-token"
+    entrypoint: ["sh", "-c"]
+    command: >
+      "sleep 3 &&
+       vault kv put secret/external-api CleSecreteExterne='Valeur-Secrete-Demo-2026' &&
+       echo 'Secret CleSecreteExterne déposé dans Vault.'"
+    networks:
+      - infra-network
+    restart: "no"   # tâche ponctuelle : elle s'exécute une fois puis s'arrête, ce n'est pas un service
+
+  # ---------------------------------------------------------------------
+  # API ASP.NET Core — Service A + Service B (logique métier simulée)
+  # ---------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile   # créé à l'étape 4
+    container_name: infra-api
+    depends_on:
+      - vault
+      - vault-init   # démarre après le dépôt du secret (ne garantit toujours pas
+                     # que Vault "répond déjà" au bon moment, d'où la logique de
+                     # retry côté C# dans VaultSecretService)
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:8080"
+      # Convention ASP.NET Core : "__" (double underscore) = niveau imbriqué
+      # dans la config, équivalent à { "Vault": { "Address": "...", "Token": "..." } }
+      Vault__Address: "http://vault:8200"
+      Vault__Token: "dev-only-root-token"
+    networks:
+      - infra-network
+    ports:
+      # Exposé UNIQUEMENT pour accéder à Swagger UI (http://localhost:8080/swagger)
+      # pendant le développement/la démo. Le vrai "point d'entrée unique" pour
+      # un client applicatif reste Kong (port 8000) : c'est lui, et lui seul,
+      # que consommera le futur front Angular. En production, cette ligne
+      # "ports" serait supprimée pour ne garder que l'accès via Kong.
+      - "8080:8080"
+
+  # ---------------------------------------------------------------------
+  # Kong API Gateway — point d'entrée unique (mode DB-less)
+  # ---------------------------------------------------------------------
+  kong:
+    image: kong:3.7
+    container_name: kong-gateway
+    depends_on:
+      - api
+    environment:
+      KONG_DATABASE: "off"                       # pas de PostgreSQL : config chargée depuis un fichier
+      KONG_DECLARATIVE_CONFIG: "/kong/kong.yml"   # chemin du fichier de config dans le conteneur
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"           # port public : là où le client envoie ses requêtes
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"           # API d'admin Kong (exposée ici pour la démo seulement)
+    volumes:
+      - ./kong/kong.yml:/kong/kong.yml:ro         # config déclarative, montée en lecture seule
+    ports:
+      - "8000:8000"   # <-- point d'entrée unique de toute l'application
+      - "8001:8001"   # admin Kong (en prod : à restreindre au réseau interne)
+    networks:
+      - infra-network
+
+networks:
+  infra-network:
+    driver: bridge
