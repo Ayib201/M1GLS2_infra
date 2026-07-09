@@ -54,3 +54,30 @@ services:
           policy: local
           fault_tolerant: true
           hide_client_headers: false
+
+  # -----------------------------------------------------------------
+  # Keycloak -- exposé via Kong pour que le NAVIGATEUR puisse l'atteindre
+  # sous "localhost:8000" (le seul nom qu'il sait déjà résoudre), sans
+  # toucher au fichier hosts de la machine. Keycloak est configuré
+  # (docker-compose.yml, KC_HOSTNAME=localhost / KC_HOSTNAME_PORT=8000)
+  # pour se présenter sous cette même adresse dans tous les liens qu'il
+  # génère (page de connexion, jetons...).
+  # Pas de rate-limiting ici : la page de connexion charge plusieurs
+  # fichiers statiques (CSS/JS) en une fraction de seconde, ça dépasserait
+  # tout de suite une limite de 5 requêtes.
+  # -----------------------------------------------------------------
+  - name: keycloak-realms
+    url: http://keycloak:8080
+    routes:
+      - name: route-keycloak-realms
+        paths:
+          - /realms
+        strip_path: false
+
+  - name: keycloak-resources
+    url: http://keycloak:8080
+    routes:
+      - name: route-keycloak-resources
+        paths:
+          - /resources
+        strip_path: false

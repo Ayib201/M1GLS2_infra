@@ -31,11 +31,33 @@ services:
       VAULT_ADDR: "http://vault:8200"
       VAULT_TOKEN: "dev-only-root-token"
     entrypoint: ["sh", "-c"]
+    # Avant : un simple "sleep 3" -- trop fragile en pratique (Docker Desktop
+    # sous forte charge, 6 conteneurs qui démarrent en même temps, premier
+    # téléchargement des images...). Si Vault n'était pas encore prêt après
+    # 3 secondes, ce conteneur échouait SANS relancer, laissant le secret
+    # "database" absent de Vault -- ce qui fait planter l'API juste après
+    # (elle ne trouve pas la chaîne de connexion au démarrage). On remplace
+    # ça par une vraie boucle d'attente active (jusqu'à 60s), qui interroge
+    # Vault jusqu'à ce qu'il réponde.
     command: >
-      "sleep 3 &&
+      "i=0;
+       while [ $$i -lt 30 ]; do
+         if vault status >/dev/null 2>&1; then
+           echo 'Vault est pret.';
+           break;
+         fi;
+         i=$$((i+1));
+         echo 'Vault pas encore pret, nouvel essai dans 2s...';
+         sleep 2;
+       done;
        vault kv put secret/external-api CleSecreteExterne='Valeur-Secrete-Demo-2026' &&
        vault kv put secret/database ConnectionString='Host=postgres;Port=5432;Database=infra_demo;Username=infra_user;Password=infra_password_dev' &&
-       echo 'Secrets déposés dans Vault (external-api + database).'"
+       echo 'Secrets deposes dans Vault (external-api + database).'"
+    # NOTE : "$$" (et non "$") -- Docker Compose interpole lui-même les "$var"
+    # présents dans ce fichier AVANT de démarrer le conteneur. "$$" est
+    # l'échappement standard Compose pour dire "laisse ce $ tel quel, c'est
+    # pour le shell du conteneur, pas pour toi". Avec un simple "$", Compose
+    # remplaçait $i par une chaîne vide et cassait toute la boucle.
     networks:
       - infra-network
     restart: "no"   # tâche ponctuelle : elle s'exécute une fois puis s'arrête, ce n'est pas un service
@@ -70,13 +92,23 @@ services:
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
-      # --- Fixe l'URL "officielle" de Keycloak (utilisée dans le champ "issuer"
-      # des jetons émis), INDÉPENDAMMENT de l'URL réellement utilisée pour
-      # l'atteindre. Sans ça : jeton obtenu via localhost:8080 (depuis ton poste)
-      # mais validé par l'API via keycloak:8080 (réseau Docker interne) => les
-      # deux "issuer" ne correspondent pas => 401 systématique. Voir étape 7.
-      KC_HOSTNAME: keycloak
-      KC_HOSTNAME_PORT: "8080"
+      # --- Fixe l'URL "officielle" de Keycloak : TOUS les liens qu'il génère
+      # (page de connexion, redirections, et le champ "issuer" des jetons)
+      # utiliseront "http://localhost:8000", quelle que soit l'adresse
+      # réellement utilisée pour l'atteindre. On choisit "localhost:8000" --
+      # l'adresse de Kong -- car c'est la seule que le NAVIGATEUR sait
+      # résoudre sans configuration supplémentaire sur la machine. Kong
+      # route ensuite en interne vers Keycloak (voir kong/kong.yml, services
+      # "keycloak-realms" / "keycloak-resources").
+      # Côté API (dans le réseau Docker), ceci crée un nouveau problème
+      # symétrique : elle ne peut pas non plus résoudre "localhost:8000"
+      # (qui, depuis un conteneur, désigne le conteneur lui-même). C'est
+      # géré côté C# par KeycloakInternalRoutingHandler (voir
+      # Extensions/KeycloakAuthenticationExtensions.cs) : l'API continue de
+      # parler à Keycloak directement via "keycloak:8080" en interne, tout
+      # en sachant que les jetons contiennent "localhost:8000".
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: "8000"
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
     ports:
@@ -98,12 +130,19 @@ services:
       dockerfile: Dockerfile   # créé à l'étape 4
     container_name: infra-api
     depends_on:
-      - vault
-      - vault-init   # démarre après le dépôt des secrets (ne garantit toujours pas
-                     # que Vault "répond déjà" au bon moment, d'où la logique de
-                     # retry côté C# dans VaultSecretService)
-      - postgres
-      - keycloak
+      vault:
+        condition: service_started
+      # "service_completed_successfully" (et non une simple liste) : Compose
+      # attend que le conteneur vault-init se termine avec le code 0 avant
+      # de démarrer l'API -- pas juste qu'il ait "démarré". C'est ce qui
+      # manquait : avant, l'API pouvait démarrer alors que vault-init était
+      # encore en train d'attendre Vault, voire avait déjà échoué.
+      vault-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_started
+      keycloak:
+        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_URLS: "http://+:8080"
@@ -111,9 +150,12 @@ services:
       # dans la config, équivalent à { "Vault": { "Address": "...", "Token": "..." } }
       Vault__Address: "http://vault:8200"
       Vault__Token: "dev-only-root-token"
-      # URL interne (réseau Docker) utilisée par le middleware JWT pour aller
-      # chercher les clés publiques de Keycloak et valider les jetons.
-      Keycloak__Authority: "http://keycloak:8080/realms/infra-demo"
+      # Deux adresses distinctes pour Keycloak (voir la note sur KC_HOSTNAME
+      # ci-dessus) : celle que l'API utilise RÉELLEMENT sur le réseau (interne,
+      # toujours joignable) et celle qui apparaît DANS les jetons (publique,
+      # via Kong) et que l'API doit donc accepter comme "issuer" valide.
+      Keycloak__InternalAuthority: "http://keycloak:8080/realms/infra-demo"
+      Keycloak__PublicIssuer: "http://localhost:8000/realms/infra-demo"
     networks:
       - infra-network
     ports:
@@ -121,8 +163,8 @@ services:
       # l'hôte). Sert UNIQUEMENT à accéder à Swagger UI en développement
       # (http://localhost:5080/swagger). Le vrai "point d'entrée unique" pour
       # un client applicatif reste Kong (port 8000) : c'est lui, et lui seul,
-      # que consommera le futur front Angular. En production, cette ligne
-      # "ports" serait supprimée pour ne garder que l'accès via Kong.
+      # que consomme le front React. En production, cette ligne "ports"
+      # serait supprimée pour ne garder que l'accès via Kong.
       - "5080:8080"
 
   # ---------------------------------------------------------------------
@@ -143,6 +185,24 @@ services:
     ports:
       - "8000:8000"   # <-- point d'entrée unique de toute l'application
       - "8001:8001"   # admin Kong (en prod : à restreindre au réseau interne)
+    networks:
+      - infra-network
+
+  # ---------------------------------------------------------------------
+  # Frontend React — build statique servi par Nginx
+  # ---------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: infra-frontend
+    depends_on:
+      - kong
+      - keycloak
+    ports:
+      - "5173:80"   # même port que le serveur de dev Vite, pour ne rien changer
+                     # aux URLs de redirection Keycloak (redirectUris) ni aux
+                     # habitudes de test.
     networks:
       - infra-network
 

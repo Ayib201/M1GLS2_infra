@@ -1,0 +1,5 @@
+# Comme pour le backend : on exclut node_modules pour forcer un "npm install"
+# propre DANS le conteneur Linux (celui de ta machine peut contenir des
+# binaires spécifiques à Windows, incompatibles avec l'image Docker).
+node_modules/
+dist/
