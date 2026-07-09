@@ -1,0 +1,17 @@
+# Ces dossiers sont générés localement par Visual Studio / dotnet CLI et
+# contiennent des chemins spécifiques à TA machine Windows (ex: un dossier
+# de cache NuGet sous "C:\Program Files (x86)\..."). S'ils sont copiés dans
+# l'image Docker (Linux), dotnet essaie de les réutiliser tels quels au lieu
+# de faire un restore propre, et ça casse le build avec des chemins qui
+# n'existent pas dans le conteneur -> c'est exactement l'erreur que tu as eue.
+bin/
+obj/
+**/bin/
+**/obj/
+
+# Autres fichiers/dossiers inutiles à l'intérieur de l'image
+.vs/
+.git/
+.gitignore
+*.user
+README.md

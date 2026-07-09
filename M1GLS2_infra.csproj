@@ -9,9 +9,24 @@
   <ItemGroup>
     <!-- Client officiel HashiCorp Vault pour .NET : gère l'authentification
          et la lecture/écriture de secrets (KV v2 ici). -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.8">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="VaultSharp" Version="1.13.0.1" />
     <!-- Swagger (UI + génération OpenAPI), activé uniquement en Development. -->
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <!-- Provider EF Core pour PostgreSQL. -->
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+    <!-- Outillage EF Core (nécessaire pour `dotnet ef migrations add` / `database update`).
+         PrivateAssets="all" : ce package n'est utile qu'à TOI, en ligne de commande,
+         jamais à l'application une fois publiée -> il n'atterrit pas dans l'image Docker finale. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <!-- Middleware de validation de jetons JWT (Keycloak). -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
   </ItemGroup>
 
 </Project>

@@ -34,3 +34,23 @@ services:
         paths:
           - /service-b
         strip_path: true
+
+  # -----------------------------------------------------------------
+  # Profils -> route publique "/api/v1/profils" (chemin IDENTIQUE côté
+  # public et côté API, donc strip_path: false et pas de suffixe dans "url")
+  # + même limite de débit que Service A.
+  # -----------------------------------------------------------------
+  - name: profils
+    url: http://api:8080   # pas de chemin ici : on laisse passer le chemin tel quel
+    routes:
+      - name: route-profils
+        paths:
+          - /api/v1/profils
+        strip_path: false   # "/api/v1/profils/creer" arrive intact à l'API
+    plugins:
+      - name: rate-limiting
+        config:
+          second: 5
+          policy: local
+          fault_tolerant: true
+          hide_client_headers: false

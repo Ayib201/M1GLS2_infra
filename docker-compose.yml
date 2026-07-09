@@ -34,10 +34,60 @@ services:
     command: >
       "sleep 3 &&
        vault kv put secret/external-api CleSecreteExterne='Valeur-Secrete-Demo-2026' &&
-       echo 'Secret CleSecreteExterne déposé dans Vault.'"
+       vault kv put secret/database ConnectionString='Host=postgres;Port=5432;Database=infra_demo;Username=infra_user;Password=infra_password_dev' &&
+       echo 'Secrets déposés dans Vault (external-api + database).'"
     networks:
       - infra-network
     restart: "no"   # tâche ponctuelle : elle s'exécute une fois puis s'arrête, ce n'est pas un service
+
+  # ---------------------------------------------------------------------
+  # PostgreSQL — base de données relationnelle pour l'API C# (profils)
+  # ---------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres-db
+    environment:
+      POSTGRES_USER: infra_user
+      POSTGRES_PASSWORD: infra_password_dev   # démo uniquement — la vraie chaîne
+                                               # de connexion transite par Vault,
+                                               # pas par ces variables d'env côté API
+      POSTGRES_DB: infra_demo
+    ports:
+      - "5432:5432"   # publié pour que TOI (depuis ton terminal) puisses lancer
+                       # `dotnet ef database update` sans passer par Docker
+    volumes:
+      - postgres-data:/var/lib/postgresql/data   # persistance des données entre redémarrages
+    networks:
+      - infra-network
+
+  # ---------------------------------------------------------------------
+  # Keycloak — IAM : authentification SSO / OAuth2 / OIDC
+  # ---------------------------------------------------------------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: keycloak
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      # --- Fixe l'URL "officielle" de Keycloak (utilisée dans le champ "issuer"
+      # des jetons émis), INDÉPENDAMMENT de l'URL réellement utilisée pour
+      # l'atteindre. Sans ça : jeton obtenu via localhost:8080 (depuis ton poste)
+      # mais validé par l'API via keycloak:8080 (réseau Docker interne) => les
+      # deux "issuer" ne correspondent pas => 401 systématique. Voir étape 7.
+      KC_HOSTNAME: keycloak
+      KC_HOSTNAME_PORT: "8080"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    volumes:
+      # Réalm pré-configuré (client + utilisateur de test), importé automatiquement
+      # au démarrage grâce à --import-realm : pas besoin de tout recréer à la main
+      # à chaque `docker compose down`.
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    networks:
+      - infra-network
 
   # ---------------------------------------------------------------------
   # API ASP.NET Core — Service A + Service B (logique métier simulée)
@@ -49,9 +99,11 @@ services:
     container_name: infra-api
     depends_on:
       - vault
-      - vault-init   # démarre après le dépôt du secret (ne garantit toujours pas
+      - vault-init   # démarre après le dépôt des secrets (ne garantit toujours pas
                      # que Vault "répond déjà" au bon moment, d'où la logique de
                      # retry côté C# dans VaultSecretService)
+      - postgres
+      - keycloak
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_URLS: "http://+:8080"
@@ -59,15 +111,19 @@ services:
       # dans la config, équivalent à { "Vault": { "Address": "...", "Token": "..." } }
       Vault__Address: "http://vault:8200"
       Vault__Token: "dev-only-root-token"
+      # URL interne (réseau Docker) utilisée par le middleware JWT pour aller
+      # chercher les clés publiques de Keycloak et valider les jetons.
+      Keycloak__Authority: "http://keycloak:8080/realms/infra-demo"
     networks:
       - infra-network
     ports:
-      # Exposé UNIQUEMENT pour accéder à Swagger UI (http://localhost:8080/swagger)
-      # pendant le développement/la démo. Le vrai "point d'entrée unique" pour
+      # Republié sur un port DIFFÉRENT de Keycloak (qui occupe déjà 8080 sur
+      # l'hôte). Sert UNIQUEMENT à accéder à Swagger UI en développement
+      # (http://localhost:5080/swagger). Le vrai "point d'entrée unique" pour
       # un client applicatif reste Kong (port 8000) : c'est lui, et lui seul,
       # que consommera le futur front Angular. En production, cette ligne
       # "ports" serait supprimée pour ne garder que l'accès via Kong.
-      - "8080:8080"
+      - "5080:8080"
 
   # ---------------------------------------------------------------------
   # Kong API Gateway — point d'entrée unique (mode DB-less)
@@ -93,3 +149,6 @@ services:
 networks:
   infra-network:
     driver: bridge
+
+volumes:
+  postgres-data:   # volume nommé : les données PostgreSQL survivent à un `docker compose down` (sans -v)
