@@ -1,0 +1,109 @@
+/* Feuille de style volontairement minimale : l'objectif de cette démo est
+   l'infrastructure (Kong/Vault/Keycloak/PostgreSQL), pas le design. Juste
+   assez de mise en page pour que la hiérarchie Projet -> Tâche ->
+   Commentaire reste lisible pendant la présentation. */
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  font-family: system-ui, sans-serif;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+header h1 {
+  font-size: 1.25rem;
+  margin: 0;
+  flex: 1 1 100%;
+}
+
+.projets-liste,
+.taches-liste,
+.commentaires-liste {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+
+.projet-item {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.taches-panel {
+  margin-top: 0.75rem;
+  padding-left: 1rem;
+  border-left: 2px solid #eee;
+}
+
+.tache-item {
+  border: 1px solid #eee;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.commentaires-panel {
+  margin-top: 0.5rem;
+  padding-left: 1rem;
+  border-left: 2px solid #f2f2f2;
+}
+
+.projet-ligne,
+.tache-ligne {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.lien-depliant {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  text-align: left;
+  flex: 1;
+}
+
+.projet-description,
+.tache-description {
+  color: #555;
+  margin: 0.25rem 0 0;
+}
+
+.vide {
+  color: #888;
+  font-style: italic;
+}
+
+.projet-form,
+.tache-form,
+.commentaire-form {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.projet-form input,
+.tache-form input {
+  padding: 0.4rem;
+  flex: 1 1 auto;
+}
+
+[role="alert"] {
+  color: #b00020;
+}

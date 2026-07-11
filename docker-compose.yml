@@ -50,9 +50,8 @@ services:
          echo 'Vault pas encore pret, nouvel essai dans 2s...';
          sleep 2;
        done;
-       vault kv put secret/external-api CleSecreteExterne='Valeur-Secrete-Demo-2026' &&
        vault kv put secret/database ConnectionString='Host=postgres;Port=5432;Database=infra_demo;Username=infra_user;Password=infra_password_dev' &&
-       echo 'Secrets deposes dans Vault (external-api + database).'"
+       echo 'Secret depose dans Vault (database).'"
     # NOTE : "$$" (et non "$") -- Docker Compose interpole lui-même les "$var"
     # présents dans ce fichier AVANT de démarrer le conteneur. "$$" est
     # l'échappement standard Compose pour dire "laisse ce $ tel quel, c'est
@@ -122,7 +121,7 @@ services:
       - infra-network
 
   # ---------------------------------------------------------------------
-  # API ASP.NET Core — Service A + Service B (logique métier simulée)
+  # API ASP.NET Core — domaine métier Projets / Tâches / Commentaires
   # ---------------------------------------------------------------------
   api:
     build:
@@ -156,6 +155,10 @@ services:
       # via Kong) et que l'API doit donc accepter comme "issuer" valide.
       Keycloak__InternalAuthority: "http://keycloak:8080/realms/infra-demo"
       Keycloak__PublicIssuer: "http://localhost:8000/realms/infra-demo"
+      # Doit correspondre au "clientId" du realm-export.json ET au claim
+      # "aud" (audience) que Keycloak place dans les jetons grâce au mapper
+      # "audience-infra-api" -- voir Extensions/KeycloakAuthenticationExtensions.cs.
+      Keycloak__ClientId: "infra-api"
     networks:
       - infra-network
     ports:

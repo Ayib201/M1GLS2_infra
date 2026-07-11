@@ -15,3 +15,13 @@ obj/
 .gitignore
 *.user
 README.md
+
+# Le frontend a son PROPRE Dockerfile et son PROPRE contexte de build
+# (frontend/, voir docker-compose.yml : "build.context: ./frontend"). Il n'a
+# donc rien à faire dans le contexte de build de l'API -- l'inclure ferait
+# transiter tout node_modules/ (des dizaines de milliers de petits fichiers,
+# potentiellement des liens symboliques) vers le démon Docker pour rien,
+# et peut même faire échouer le build si l'un de ces fichiers a un type
+# spécial que l'archive tar ne sait pas représenter (erreur observée :
+# "archive/tar: unknown file mode").
+frontend/

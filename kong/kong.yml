@@ -5,55 +5,28 @@ _format_version: "3.0"
 services:
 
   # -----------------------------------------------------------------
-  # Service A -> route publique "/service-a" + limite de débit
+  # Projets -> route publique "/api/v1/projets" (chemin IDENTIQUE côté
+  # public et côté API, donc strip_path: false et pas de suffixe dans "url").
+  # Une SEULE route couvre tout le domaine métier, y compris les
+  # sous-ressources imbriquées : .../taches et .../commentaires sont de
+  # simples préfixes plus longs qui commencent tous par "/api/v1/projets".
   # -----------------------------------------------------------------
-  - name: service-a
-    url: http://api:8080/api/v1/serviceA   # "api" = nom du service Docker (docker-compose.yml)
+  - name: projets
+    url: http://api:8080   # "api" = nom du service Docker (docker-compose.yml)
     routes:
-      - name: route-service-a
+      - name: route-projets
         paths:
-          - /service-a
-        strip_path: true   # Kong retire "/service-a" avant de transmettre à l'API
-                            # (le client tape /service-a, l'API reçoit l'appel sur
-                            # son propre chemin /api/v1/serviceA, défini dans "url")
+          - /api/v1/projets
+        strip_path: false   # "/api/v1/projets/{id}/taches/{id}/commentaires" arrive intact à l'API
     plugins:
       - name: rate-limiting
         config:
-          second: 5          # voir explication ci-dessous : approximation de "5 / 10s"
+          second: 5          # Kong OSS ne propose pas nativement "N requêtes / fenêtre custom" :
+                             # "second: 5" (5 requêtes par seconde glissante) est l'approximation
+                             # la plus proche disponible sans plugin payant.
           policy: local      # compteur gardé en mémoire de ce nœud Kong (pas de Redis nécessaire)
           fault_tolerant: true       # si le compteur plante, on laisse passer plutôt que de tout bloquer
           hide_client_headers: false # Kong ajoute des en-têtes X-RateLimit-* dans la réponse (utile en démo)
-
-  # -----------------------------------------------------------------
-  # Service B -> route publique "/service-b", pas de limite
-  # -----------------------------------------------------------------
-  - name: service-b
-    url: http://api:8080/api/v1/serviceB
-    routes:
-      - name: route-service-b
-        paths:
-          - /service-b
-        strip_path: true
-
-  # -----------------------------------------------------------------
-  # Profils -> route publique "/api/v1/profils" (chemin IDENTIQUE côté
-  # public et côté API, donc strip_path: false et pas de suffixe dans "url")
-  # + même limite de débit que Service A.
-  # -----------------------------------------------------------------
-  - name: profils
-    url: http://api:8080   # pas de chemin ici : on laisse passer le chemin tel quel
-    routes:
-      - name: route-profils
-        paths:
-          - /api/v1/profils
-        strip_path: false   # "/api/v1/profils/creer" arrive intact à l'API
-    plugins:
-      - name: rate-limiting
-        config:
-          second: 5
-          policy: local
-          fault_tolerant: true
-          hide_client_headers: false
 
   # -----------------------------------------------------------------
   # Keycloak -- exposé via Kong pour que le NAVIGATEUR puisse l'atteindre

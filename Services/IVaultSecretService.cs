@@ -24,7 +24,7 @@ public interface IVaultSecretService
     /// <summary>
     /// Lit une clé précise dans un secret Vault (moteur KV version 2).
     /// </summary>
-    /// <param name="secretPath">Chemin du secret, ex: "external-api".</param>
-    /// <param name="secretKey">Nom de la clé à l'intérieur du secret, ex: "CleSecreteExterne".</param>
+    /// <param name="secretPath">Chemin du secret, ex: "database".</param>
+    /// <param name="secretKey">Nom de la clé à l'intérieur du secret, ex: "ConnectionString".</param>
     Task<string> GetSecretValueAsync(string secretPath, string secretKey, CancellationToken cancellationToken = default);
 }

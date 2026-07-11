@@ -31,6 +31,9 @@ public static class KeycloakAuthenticationExtensions
         var publicIssuer = configuration["Keycloak:PublicIssuer"]
             ?? throw new InvalidOperationException("Configuration manquante : 'Keycloak:PublicIssuer'.");
 
+        var clientId = configuration["Keycloak:ClientId"]
+            ?? throw new InvalidOperationException("Configuration manquante : 'Keycloak:ClientId'.");
+
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
@@ -62,11 +65,20 @@ public static class KeycloakAuthenticationExtensions
                     ValidateIssuer = true,
                     ValidIssuer = publicIssuer,     // valeur RÉELLEMENT contenue dans les jetons émis
                     ValidateLifetime = true,        // refuse les jetons expirés
-                    ValidateIssuerSigningKey = true // vérifie la signature cryptographique du jeton
-                    // ValidateAudience volontairement omis (donc désactivé) : simplification
-                    // de démo -- Keycloak ne place "infra-api" dans le claim "aud" que si on
-                    // ajoute un "audience mapper" dédié sur le client. En prod : ValidateAudience=true
-                    // + mapper explicite dans keycloak/realm-export.json.
+                    ValidateIssuerSigningKey = true, // vérifie la signature cryptographique du jeton
+
+                    // IMPORTANT : par défaut, TokenValidationParameters.ValidateAudience vaut
+                    // déjà TRUE même quand on ne l'écrit pas explicitement -- ce n'était PAS
+                    // désactivé avant (contrairement à ce que suggérait un commentaire ici),
+                    // ce qui rejetait TOUT jeton avec l'erreur "The audience 'empty' is invalid"
+                    // dès qu'un vrai jeton Keycloak (sans claim "aud" correspondant) était utilisé.
+                    // On active donc l'audience EXPLICITEMENT, et on exige la bonne valeur :
+                    // "infra-api" doit apparaître dans le claim "aud" du jeton, ce que Keycloak ne
+                    // fait que grâce au mapper "audience-infra-api" ajouté sur le client (voir
+                    // keycloak/realm-export.json). Vérifier l'audience empêche un jeton émis pour
+                    // une AUTRE application du même serveur Keycloak d'être rejoué contre cette API.
+                    ValidateAudience = true,
+                    ValidAudience = clientId
                 };
             });
 

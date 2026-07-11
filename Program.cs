@@ -17,7 +17,8 @@ var databaseConnectionString = await builder.BootstrapVaultAsync();
 builder.Services.AddInfraCors();
 builder.Services.AddVaultSecretService();
 builder.Services.AddPostgresDatabase(databaseConnectionString);
-builder.Services.AddProfilService();
+builder.Services.AddUtilisateurCourantService();
+builder.Services.AddDomaineMetierServices();
 builder.Services.AddControllersSupport();
 builder.Services.AddSwaggerWithBearerAuth();
 builder.Services.AddKeycloakAuthentication(builder.Configuration);
@@ -53,9 +54,9 @@ app.UseAuthorization();
 // indépendamment de Kong -- pas besoin d'un contrôleur pour ça.
 app.MapGet("/", () => Results.Ok(new { status = "InfraDemo API en cours d'exécution" }));
 
-// Service A, Service B et /api/v1/profils/creer sont maintenant des
-// contrôleurs (voir dossier Controllers/) : MapControllers() les découvre
-// automatiquement grâce à leurs attributs [ApiController]/[Route].
+// Projets, Taches et Commentaires sont des contrôleurs (voir dossier
+// Controllers/) : MapControllers() les découvre automatiquement grâce à
+// leurs attributs [ApiController]/[Route].
 app.MapControllers();
 
 app.Run();
