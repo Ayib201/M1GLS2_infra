@@ -2,7 +2,7 @@ using M1GLS2_infra.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var databaseConnectionString = await builder.BootstrapVaultAsync();
+var bootstrap = await builder.BootstrapVaultAsync();
 
 // ---------------------------------------------------------------------
 // Déclaration des services : chaque ligne délègue à une classe dédiée
@@ -12,9 +12,9 @@ var databaseConnectionString = await builder.BootstrapVaultAsync();
 // ---------------------------------------------------------------------
 builder.Services.AddInfraCors();
 builder.Services.AddVaultSecretService();
-builder.Services.AddPostgresDatabase(databaseConnectionString);
+builder.Services.AddPostgresDatabase(bootstrap.DatabaseConnectionString);
 builder.Services.AddUtilisateurCourantService();
-builder.Services.AddRedisCache(builder.Configuration);
+builder.Services.AddRedisCache(bootstrap.RedisConnectionString);
 builder.Services.AddDomaineMetierServices();
 builder.Services.AddControllersSupport();
 builder.Services.AddSwaggerWithBearerAuth();

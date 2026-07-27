@@ -12,12 +12,14 @@ public static class RedisCacheServiceExtensions
     /// partagée et réutilisée par toute l'application, jamais recréée par
     /// requête -- contrairement à AppDbContext (Scoped), qui lui doit être
     /// une instance par requête.
+    ///
+    /// "connectionString" vient de Vault (voir VaultBootstrapExtensions.cs),
+    /// pas de IConfiguration -- même principe que AddPostgresDatabase : la
+    /// valeur est déjà résolue par le bootstrap AVANT que ce service ne soit
+    /// enregistré, ce qui garde AddRedisCache totalement ignorant de VaultSharp.
     /// </summary>
-    public static IServiceCollection AddRedisCache(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddRedisCache(this IServiceCollection services, string connectionString)
     {
-        var connectionString = configuration["Redis:ConnectionString"]
-            ?? throw new InvalidOperationException("Configuration manquante : 'Redis:ConnectionString'.");
-
         services.AddStackExchangeRedisCache(options =>
         {
             options.Configuration = connectionString;

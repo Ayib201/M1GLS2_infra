@@ -7,16 +7,24 @@ namespace M1GLS2_infra.Services;
 
 public sealed class TacheService : ITacheService
 {
+    // Même durée que ProjetService -- voir son commentaire pour le "pourquoi".
+    private static readonly TimeSpan DureeCache = TimeSpan.FromSeconds(30);
+
     private readonly AppDbContext _dbContext;
     private readonly IUtilisateurCourantService _utilisateurCourantService;
+    private readonly ICacheService _cacheService;
 
-    public TacheService(AppDbContext dbContext, IUtilisateurCourantService utilisateurCourantService)
+    public TacheService(
+        AppDbContext dbContext,
+        IUtilisateurCourantService utilisateurCourantService,
+        ICacheService cacheService)
     {
         _dbContext = dbContext;
         _utilisateurCourantService = utilisateurCourantService;
+        _cacheService = cacheService;
     }
 
-    public async Task<IReadOnlyList<Tache>?> ListerTachesAsync(Guid projetId, ClaimsPrincipal utilisateurConnecte)
+    public async Task<ResultatListeTaches?> ListerTachesAsync(Guid projetId, ClaimsPrincipal utilisateurConnecte)
     {
         var utilisateur = await _utilisateurCourantService.ObtenirOuCreerAsync(utilisateurConnecte);
 
@@ -28,10 +36,30 @@ public sealed class TacheService : ITacheService
             return null;
         }
 
-        return await _dbContext.Taches
+        // Cache-aside, même principe que ProjetService.ListerMesProjetsAsync :
+        // une clé PAR PROJET (pas par utilisateur) suffit ici, puisque seul le
+        // propriétaire du projet peut jamais passer la vérification
+        // "projetAccessible" ci-dessus -- pas de risque qu'un autre
+        // utilisateur lise ce cache par erreur.
+        var cle = ClePourListeTaches(projetId);
+
+        var tachesEnCache = await _cacheService.ObtenirAsync<List<Tache>>(cle);
+        if (tachesEnCache is not null)
+        {
+            return new ResultatListeTaches(tachesEnCache, ProvientDuCache: true);
+        }
+
+        // SIMULATION pour la démo -- voir ProjetService pour le détail.
+        await Task.Delay(300);
+
+        var taches = await _dbContext.Taches
             .Where(t => t.ProjetId == projetId)
             .OrderBy(t => t.DateCreation)
             .ToListAsync();
+
+        await _cacheService.DefinirAsync(cle, taches, DureeCache);
+
+        return new ResultatListeTaches(taches, ProvientDuCache: false);
     }
 
     public async Task<Tache?> CreerTacheAsync(
@@ -58,6 +86,8 @@ public sealed class TacheService : ITacheService
         _dbContext.Taches.Add(tache);
         await _dbContext.SaveChangesAsync();
 
+        await _cacheService.SupprimerAsync(ClePourListeTaches(projetId));
+
         return tache;
     }
 
@@ -78,6 +108,11 @@ public sealed class TacheService : ITacheService
 
         await _dbContext.SaveChangesAsync();
 
+        // Le statut affiché dans la liste (ex: "Terminee") doit changer dès
+        // maintenant -- sans cette ligne, la liste en cache resterait
+        // périmée jusqu'à 30s.
+        await _cacheService.SupprimerAsync(ClePourListeTaches(projetId));
+
         return tache;
     }
 
@@ -93,8 +128,12 @@ public sealed class TacheService : ITacheService
         _dbContext.Taches.Remove(tache);
         await _dbContext.SaveChangesAsync();
 
+        await _cacheService.SupprimerAsync(ClePourListeTaches(projetId));
+
         return true;
     }
+
+    private static string ClePourListeTaches(Guid projetId) => $"taches:projet:{projetId}";
 
     /// <summary>
     /// Centralise la vérification "cette tâche existe, appartient bien au

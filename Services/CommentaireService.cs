@@ -7,16 +7,24 @@ namespace M1GLS2_infra.Services;
 
 public sealed class CommentaireService : ICommentaireService
 {
+    // Même durée que ProjetService/TacheService.
+    private static readonly TimeSpan DureeCache = TimeSpan.FromSeconds(30);
+
     private readonly AppDbContext _dbContext;
     private readonly IUtilisateurCourantService _utilisateurCourantService;
+    private readonly ICacheService _cacheService;
 
-    public CommentaireService(AppDbContext dbContext, IUtilisateurCourantService utilisateurCourantService)
+    public CommentaireService(
+        AppDbContext dbContext,
+        IUtilisateurCourantService utilisateurCourantService,
+        ICacheService cacheService)
     {
         _dbContext = dbContext;
         _utilisateurCourantService = utilisateurCourantService;
+        _cacheService = cacheService;
     }
 
-    public async Task<IReadOnlyList<Commentaire>?> ListerCommentairesAsync(
+    public async Task<ResultatListeCommentaires?> ListerCommentairesAsync(
         Guid projetId, Guid tacheId, ClaimsPrincipal utilisateurConnecte)
     {
         var utilisateur = await _utilisateurCourantService.ObtenirOuCreerAsync(utilisateurConnecte);
@@ -27,10 +35,28 @@ public sealed class CommentaireService : ICommentaireService
             return null;
         }
 
-        return await _dbContext.Commentaires
+        // Cache-aside, clé par TÂCHE : seul le propriétaire du projet parent
+        // peut jamais passer "tacheAccessible" ci-dessus, donc pas besoin
+        // d'inclure l'utilisateur dans la clé.
+        var cle = ClePourListeCommentaires(tacheId);
+
+        var commentairesEnCache = await _cacheService.ObtenirAsync<List<Commentaire>>(cle);
+        if (commentairesEnCache is not null)
+        {
+            return new ResultatListeCommentaires(commentairesEnCache, ProvientDuCache: true);
+        }
+
+        // SIMULATION pour la démo -- voir ProjetService pour le détail.
+        await Task.Delay(300);
+
+        var commentaires = await _dbContext.Commentaires
             .Where(c => c.TacheId == tacheId)
             .OrderBy(c => c.DateCreation)
             .ToListAsync();
+
+        await _cacheService.DefinirAsync(cle, commentaires, DureeCache);
+
+        return new ResultatListeCommentaires(commentaires, ProvientDuCache: false);
     }
 
     public async Task<Commentaire?> CreerCommentaireAsync(
@@ -53,6 +79,8 @@ public sealed class CommentaireService : ICommentaireService
 
         _dbContext.Commentaires.Add(commentaire);
         await _dbContext.SaveChangesAsync();
+
+        await _cacheService.SupprimerAsync(ClePourListeCommentaires(tacheId));
 
         return commentaire;
     }
@@ -79,8 +107,12 @@ public sealed class CommentaireService : ICommentaireService
         _dbContext.Commentaires.Remove(commentaire);
         await _dbContext.SaveChangesAsync();
 
+        await _cacheService.SupprimerAsync(ClePourListeCommentaires(tacheId));
+
         return true;
     }
+
+    private static string ClePourListeCommentaires(Guid tacheId) => $"commentaires:tache:{tacheId}";
 
     /// <summary>
     /// Vérifie que la tâche existe, appartient au projet indiqué, et que ce

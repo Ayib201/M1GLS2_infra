@@ -11,7 +11,7 @@ namespace M1GLS2_infra.Services;
 public interface ITacheService
 {
     /// <summary>Retourne null si le projet parent n'existe pas ou n'appartient pas à l'appelant.</summary>
-    Task<IReadOnlyList<Tache>?> ListerTachesAsync(Guid projetId, ClaimsPrincipal utilisateurConnecte);
+    Task<ResultatListeTaches?> ListerTachesAsync(Guid projetId, ClaimsPrincipal utilisateurConnecte);
 
     /// <summary>Retourne null si le projet parent n'existe pas ou n'appartient pas à l'appelant.</summary>
     Task<Tache?> CreerTacheAsync(Guid projetId, CreerTacheRequest requete, ClaimsPrincipal utilisateurConnecte);

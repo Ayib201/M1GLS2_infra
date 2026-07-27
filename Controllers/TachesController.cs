@@ -28,8 +28,16 @@ public class TachesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Lister(Guid projetId)
     {
-        var taches = await _tacheService.ListerTachesAsync(projetId, User);
-        return taches is null ? NotFound() : Ok(taches);
+        var resultat = await _tacheService.ListerTachesAsync(projetId, User);
+
+        if (resultat is null)
+        {
+            return NotFound();
+        }
+
+        Response.Headers["X-Cache-Status"] = resultat.ProvientDuCache ? "HIT" : "MISS";
+
+        return Ok(resultat.Taches);
     }
 
     [HttpPost]

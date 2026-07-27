@@ -10,7 +10,7 @@ namespace M1GLS2_infra.Services;
 /// </summary>
 public interface ICommentaireService
 {
-    Task<IReadOnlyList<Commentaire>?> ListerCommentairesAsync(
+    Task<ResultatListeCommentaires?> ListerCommentairesAsync(
         Guid projetId, Guid tacheId, ClaimsPrincipal utilisateurConnecte);
 
     Task<Commentaire?> CreerCommentaireAsync(

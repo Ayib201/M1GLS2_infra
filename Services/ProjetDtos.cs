@@ -26,3 +26,9 @@ public sealed record CreerCommentaireRequest(string Contenu);
 /// HTTP (voir Controllers/ProjetsController.cs).
 /// </summary>
 public sealed record ResultatListeProjets(IReadOnlyList<Projet> Projets, bool ProvientDuCache);
+
+/// <summary>Même rôle que ResultatListeProjets, pour la liste des tâches d'un projet.</summary>
+public sealed record ResultatListeTaches(IReadOnlyList<Tache> Taches, bool ProvientDuCache);
+
+/// <summary>Même rôle que ResultatListeProjets, pour la liste des commentaires d'une tâche.</summary>
+public sealed record ResultatListeCommentaires(IReadOnlyList<Commentaire> Commentaires, bool ProvientDuCache);

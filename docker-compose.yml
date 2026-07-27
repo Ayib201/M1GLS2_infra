@@ -51,7 +51,8 @@ services:
          sleep 2;
        done;
        vault kv put secret/database ConnectionString='Host=postgres;Port=5432;Database=infra_demo;Username=infra_user;Password=infra_password_dev' &&
-       echo 'Secret depose dans Vault (database).'"
+       vault kv put secret/redis ConnectionString='redis:6379' &&
+       echo 'Secrets deposes dans Vault (database + redis).'"
     # NOTE : "$$" (et non "$") -- Docker Compose interpole lui-même les "$var"
     # présents dans ce fichier AVANT de démarrer le conteneur. "$$" est
     # l'échappement standard Compose pour dire "laisse ce $ tel quel, c'est
@@ -176,9 +177,9 @@ services:
       # "aud" (audience) que Keycloak place dans les jetons grâce au mapper
       # "audience-infra-api" -- voir Extensions/KeycloakAuthenticationExtensions.cs.
       Keycloak__ClientId: "infra-api"
-      # Nom du service Docker "redis", résolu automatiquement sur le réseau
-      # interne -- voir Extensions/RedisCacheServiceExtensions.cs.
-      Redis__ConnectionString: "redis:6379"
+      # Pas de "Redis__ConnectionString" ici : cette adresse est maintenant
+      # lue depuis Vault (secret/redis, déposé par vault-init ci-dessus) au
+      # tout démarrage de l'API -- voir Extensions/VaultBootstrapExtensions.cs.
     networks:
       - infra-network
     ports:

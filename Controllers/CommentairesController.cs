@@ -27,8 +27,16 @@ public class CommentairesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Lister(Guid projetId, Guid tacheId)
     {
-        var commentaires = await _commentaireService.ListerCommentairesAsync(projetId, tacheId, User);
-        return commentaires is null ? NotFound() : Ok(commentaires);
+        var resultat = await _commentaireService.ListerCommentairesAsync(projetId, tacheId, User);
+
+        if (resultat is null)
+        {
+            return NotFound();
+        }
+
+        Response.Headers["X-Cache-Status"] = resultat.ProvientDuCache ? "HIT" : "MISS";
+
+        return Ok(resultat.Commentaires);
     }
 
     [HttpPost]
