@@ -2,10 +2,6 @@ using M1GLS2_infra.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// La chaîne de connexion PostgreSQL doit être récupérée AVANT builder.Build(),
-// car AddPostgresDatabase() (juste en dessous) en a besoin pour enregistrer
-// AppDbContext dans le conteneur d'injection de dépendances. Voir le détail
-// dans Extensions/VaultBootstrapExtensions.cs.
 var databaseConnectionString = await builder.BootstrapVaultAsync();
 
 // ---------------------------------------------------------------------
@@ -18,6 +14,7 @@ builder.Services.AddInfraCors();
 builder.Services.AddVaultSecretService();
 builder.Services.AddPostgresDatabase(databaseConnectionString);
 builder.Services.AddUtilisateurCourantService();
+builder.Services.AddRedisCache(builder.Configuration);
 builder.Services.AddDomaineMetierServices();
 builder.Services.AddControllersSupport();
 builder.Services.AddSwaggerWithBearerAuth();

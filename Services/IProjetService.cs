@@ -10,7 +10,7 @@ namespace M1GLS2_infra.Services;
 /// </summary>
 public interface IProjetService
 {
-    Task<IReadOnlyList<Projet>> ListerMesProjetsAsync(ClaimsPrincipal utilisateurConnecte);
+    Task<ResultatListeProjets> ListerMesProjetsAsync(ClaimsPrincipal utilisateurConnecte);
 
     Task<Projet> CreerProjetAsync(CreerProjetRequest requete, ClaimsPrincipal utilisateurConnecte);
 

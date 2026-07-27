@@ -29,8 +29,15 @@ public class ProjetsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Lister()
     {
-        var projets = await _projetService.ListerMesProjetsAsync(User);
-        return Ok(projets);
+        var resultat = await _projetService.ListerMesProjetsAsync(User);
+
+        // Header custom (même idée que les CDN/caches HTTP classiques :
+        // X-Cache-Status). Visible dans l'onglet Network du navigateur ou
+        // via `curl -i` -- utile pour PROUVER en démo que le cache a servi
+        // la réponse, sans avoir à lire les logs serveur.
+        Response.Headers["X-Cache-Status"] = resultat.ProvientDuCache ? "HIT" : "MISS";
+
+        return Ok(resultat.Projets);
     }
 
     [HttpGet("{projetId:guid}")]

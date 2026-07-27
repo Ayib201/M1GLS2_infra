@@ -17,3 +17,12 @@ public sealed record MettreAJourTacheRequest(
     DateTime? DateEcheance);
 
 public sealed record CreerCommentaireRequest(string Contenu);
+
+/// <summary>
+/// "ProvientDuCache" permet au contrôleur d'exposer un header HTTP
+/// (X-Cache-Status: HIT/MISS) sans que ProjetService ait besoin de
+/// connaître quoi que ce soit sur HTTP -- le service reste concentré sur
+/// la logique métier, le contrôleur reste seul responsable de la traduction
+/// HTTP (voir Controllers/ProjetsController.cs).
+/// </summary>
+public sealed record ResultatListeProjets(IReadOnlyList<Projet> Projets, bool ProvientDuCache);

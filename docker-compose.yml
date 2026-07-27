@@ -121,6 +121,21 @@ services:
       - infra-network
 
   # ---------------------------------------------------------------------
+  # Redis — cache applicatif en mémoire (voir Services/CacheService.cs).
+  # Contrairement à Postgres/Vault, aucun mot de passe ici (mode dev, comme
+  # Vault) : ce n'est donc pas un VRAI secret, pas besoin de le faire
+  # transiter par Vault -- juste un hôte:port interne au réseau Docker.
+  # ---------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: redis-cache
+    ports:
+      - "6379:6379"   # publié pour inspecter le cache en direct depuis TON terminal :
+                       # redis-cli -h localhost keys "*"
+    networks:
+      - infra-network
+
+  # ---------------------------------------------------------------------
   # API ASP.NET Core — domaine métier Projets / Tâches / Commentaires
   # ---------------------------------------------------------------------
   api:
@@ -142,6 +157,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
+      redis:
+        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_URLS: "http://+:8080"
@@ -159,6 +176,9 @@ services:
       # "aud" (audience) que Keycloak place dans les jetons grâce au mapper
       # "audience-infra-api" -- voir Extensions/KeycloakAuthenticationExtensions.cs.
       Keycloak__ClientId: "infra-api"
+      # Nom du service Docker "redis", résolu automatiquement sur le réseau
+      # interne -- voir Extensions/RedisCacheServiceExtensions.cs.
+      Redis__ConnectionString: "redis:6379"
     networks:
       - infra-network
     ports:

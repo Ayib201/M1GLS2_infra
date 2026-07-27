@@ -27,6 +27,9 @@
     </PackageReference>
     <!-- Middleware de validation de jetons JWT (Keycloak). -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
+    <!-- Implémentation officielle Microsoft de IDistributedCache sur Redis
+         (via le client StackExchange.Redis en interne). Voir Services/CacheService.cs. -->
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.9" />
   </ItemGroup>
 
 </Project>
