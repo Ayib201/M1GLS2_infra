@@ -37,6 +37,10 @@
     <!-- Format JSON compact (une ligne par événement, propriétés en clé/valeur) :
          le format standard pour être ensuite ingéré par un ELK/Grafana Loki/Seq. -->
     <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
+    <!-- Envoie les logs vers Seq (voir docker-compose.yml, service "seq") en
+         plus de la console : interface web pour chercher/filtrer les logs
+         sans passer par `docker compose logs`. -->
+    <PackageReference Include="Serilog.Sinks.Seq" Version="9.1.0" />
   </ItemGroup>
 
 </Project>

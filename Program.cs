@@ -19,9 +19,13 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.Host.UseSerilog((_, loggerConfiguration) => loggerConfiguration.ConfigurerSerilog());
-
+    // Le bootstrap Vault doit s'exécuter AVANT UseSerilog() ci-dessous : c'est
+    // lui qui nous donne l'URL de Seq (bootstrap.SeqUrl), nécessaire pour que
+    // le "vrai" logger (celui qui sert toute l'application, pas seulement le
+    // tout premier démarrage) écrive aussi vers Seq -- voir SerilogExtensions.cs.
     var bootstrap = await builder.BootstrapVaultAsync();
+
+    builder.Host.UseSerilog((_, loggerConfiguration) => loggerConfiguration.ConfigurerSerilog(bootstrap.SeqUrl));
 
     // ---------------------------------------------------------------------
     // Déclaration des services : chaque ligne délègue à une classe dédiée

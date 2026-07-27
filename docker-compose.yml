@@ -52,7 +52,8 @@ services:
        done;
        vault kv put secret/database ConnectionString='Host=postgres;Port=5432;Database=infra_demo;Username=infra_user;Password=infra_password_dev' &&
        vault kv put secret/redis ConnectionString='redis:6379' &&
-       echo 'Secrets deposes dans Vault (database + redis).'"
+       vault kv put secret/seq Url='http://seq:80' &&
+       echo 'Secrets deposes dans Vault (database + redis + seq).'"
     # NOTE : "$$" (et non "$") -- Docker Compose interpole lui-même les "$var"
     # présents dans ce fichier AVANT de démarrer le conteneur. "$$" est
     # l'échappement standard Compose pour dire "laisse ce $ tel quel, c'est
@@ -137,6 +138,25 @@ services:
       - infra-network
 
   # ---------------------------------------------------------------------
+  # Seq — interface web pour chercher/filtrer les logs structurés (JSON)
+  # envoyés par l'API via Serilog (voir Extensions/SerilogExtensions.cs).
+  # Remplace `docker compose logs` par une vraie recherche : par
+  # utilisateur, par statut de cache, par code retour, etc.
+  # "ACCEPT_EULA=Y" : obligatoire pour démarrer Seq (licence gratuite pour
+  # un usage comme celui-ci). Pas de mot de passe admin configuré ici (mode
+  # démo, comme Vault/Redis) -- Seq démarre alors sans authentification.
+  # ---------------------------------------------------------------------
+  seq:
+    image: datalust/seq:latest
+    container_name: seq-logs
+    environment:
+      ACCEPT_EULA: "Y"
+    ports:
+      - "5341:80"   # http://localhost:5341 -- l'interface web de Seq
+    networks:
+      - infra-network
+
+  # ---------------------------------------------------------------------
   # API ASP.NET Core — domaine métier Projets / Tâches / Commentaires
   # ---------------------------------------------------------------------
   api:
@@ -160,6 +180,8 @@ services:
         condition: service_started
       redis:
         condition: service_started
+      seq:
+        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_URLS: "http://+:8080"
@@ -177,9 +199,10 @@ services:
       # "aud" (audience) que Keycloak place dans les jetons grâce au mapper
       # "audience-infra-api" -- voir Extensions/KeycloakAuthenticationExtensions.cs.
       Keycloak__ClientId: "infra-api"
-      # Pas de "Redis__ConnectionString" ici : cette adresse est maintenant
-      # lue depuis Vault (secret/redis, déposé par vault-init ci-dessus) au
-      # tout démarrage de l'API -- voir Extensions/VaultBootstrapExtensions.cs.
+      # Pas de "Redis__ConnectionString" ni de "Seq__Url" ici : ces deux
+      # adresses sont maintenant lues depuis Vault (secret/redis, secret/seq,
+      # déposés par vault-init ci-dessus) au tout démarrage de l'API -- voir
+      # Extensions/VaultBootstrapExtensions.cs.
     networks:
       - infra-network
     ports:

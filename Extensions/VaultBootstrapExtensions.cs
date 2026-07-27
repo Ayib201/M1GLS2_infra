@@ -12,7 +12,7 @@ public static class VaultBootstrapExtensions
 {
     /// <summary>
     /// S'authentifie auprès de Vault et récupère les chaînes de connexion
-    /// PostgreSQL ET Redis.
+    /// PostgreSQL, Redis ET l'URL de Seq.
     ///
     /// Pourquoi ici et pas comme les autres services (voir les autres classes
     /// du dossier Extensions/) ? `AddPostgresDatabase` et `AddRedisCache` ont
@@ -25,11 +25,18 @@ public static class VaultBootstrapExtensions
     /// autonome, à usage unique, avant même de commencer à déclarer les
     /// services.
     ///
-    /// Redis n'a pas de mot de passe en mode dev (voir docker-compose.yml) :
-    /// faire transiter son adresse par Vault n'est donc pas motivé par la
-    /// confidentialité (comme pour PostgreSQL), mais par la cohérence -- UN
-    /// SEUL endroit centralise la configuration de "où sont les services dont
-    /// dépend l'API", plutôt que de la disperser entre Vault et appsettings.json.
+    /// L'URL de Seq est nécessaire ICI (et pas dans SerilogExtensions.cs
+    /// directement) pour une raison de chronologie : le "vrai" logger Serilog
+    /// (celui qui écrit aussi vers Seq) n'est configuré que juste APRÈS ce
+    /// bootstrap, dans Program.cs -- il faut donc connaître l'URL de Seq
+    /// avant de pouvoir le configurer.
+    ///
+    /// Redis et Seq n'ont pas de mot de passe en mode dev (voir
+    /// docker-compose.yml) : faire transiter leur adresse par Vault n'est
+    /// donc pas motivé par la confidentialité (comme pour PostgreSQL), mais
+    /// par la cohérence -- UN SEUL endroit centralise la configuration de
+    /// "où sont les services dont dépend l'API", plutôt que de la disperser
+    /// entre Vault et appsettings.json.
     /// </summary>
     public static async Task<BootstrapResultat> BootstrapVaultAsync(this WebApplicationBuilder builder)
     {
@@ -62,7 +69,13 @@ public static class VaultBootstrapExtensions
 
         startupLogger.LogInformation("Vault OK : chaîne de connexion Redis récupérée.");
 
-        return new BootstrapResultat(databaseConnectionString, redisConnectionString);
+        var seqUrl = await vaultService.GetSecretValueAsync(
+            secretPath: "seq",
+            secretKey: "Url");
+
+        startupLogger.LogInformation("Vault OK : URL de Seq récupérée.");
+
+        return new BootstrapResultat(databaseConnectionString, redisConnectionString, seqUrl);
     }
 }
 
@@ -70,4 +83,4 @@ public static class VaultBootstrapExtensions
 /// Regroupe tout ce que le bootstrap Vault a récupéré, avant même que
 /// l'injection de dépendances n'existe -- voir BootstrapVaultAsync ci-dessus.
 /// </summary>
-public sealed record BootstrapResultat(string DatabaseConnectionString, string RedisConnectionString);
+public sealed record BootstrapResultat(string DatabaseConnectionString, string RedisConnectionString, string SeqUrl);

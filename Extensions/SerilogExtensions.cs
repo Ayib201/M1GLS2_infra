@@ -22,9 +22,19 @@ public static class SerilogExtensions
     /// (une pour le bootstrap, une pour le "vrai" logger) qui pourraient
     /// diverger avec le temps.
     /// </summary>
-    public static LoggerConfiguration ConfigurerSerilog(this LoggerConfiguration loggerConfiguration)
+    /// <param name="seqUrl">
+    /// Adresse de Seq (ex: "http://seq:80"), récupérée depuis Vault au
+    /// démarrage -- voir Extensions/VaultBootstrapExtensions.cs. Optionnelle
+    /// (null par défaut) car le tout premier logger de bootstrap (Program.cs,
+    /// AVANT le bootstrap Vault) ne connaît pas encore cette adresse : il
+    /// écrit donc uniquement sur la console à ce stade-là. Une fois l'adresse
+    /// connue, ce même logger est reconfiguré avec le sink Seq en plus.
+    /// </param>
+    public static LoggerConfiguration ConfigurerSerilog(
+        this LoggerConfiguration loggerConfiguration,
+        string? seqUrl = null)
     {
-        return loggerConfiguration
+        loggerConfiguration
             .MinimumLevel.Information()
             // Les frameworks Microsoft (routage, EF Core SQL, etc.) sont très
             // bavards en Information -- on ne garde que Warning et plus grave
@@ -43,5 +53,17 @@ public static class SerilogExtensions
             // fichier À L'INTÉRIEUR du conteneur (perdu au prochain redémarrage).
             // CompactJsonFormatter = une ligne JSON par événement.
             .WriteTo.Console(new CompactJsonFormatter());
+
+        // Deuxième destination, EN PLUS de la console (pas à la place) :
+        // Seq stocke les mêmes événements et offre une interface web pour les
+        // chercher/filtrer -- voir docker-compose.yml, service "seq". Ajouté
+        // seulement si une URL est connue, pour que ce même code reste
+        // utilisable par le logger de bootstrap (qui n'a pas encore lu Vault).
+        if (!string.IsNullOrWhiteSpace(seqUrl))
+        {
+            loggerConfiguration.WriteTo.Seq(seqUrl);
+        }
+
+        return loggerConfiguration;
     }
 }
