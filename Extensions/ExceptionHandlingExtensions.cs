@@ -10,6 +10,12 @@ public static class ExceptionHandlingExtensions
     /// (pour le débogage), et renvoie au client une réponse JSON
     /// volontairement sobre -- jamais de stack trace exposée, pour ne pas
     /// révéler de détails internes à un attaquant.
+    ///
+    /// "logger.LogError" ci-dessous n'a jamais eu besoin de changer pour
+    /// profiter de Serilog (voir Program.cs/SerilogExtensions.cs) :
+    /// `ILogger&lt;Program&gt;` est une abstraction Microsoft, Serilog vient
+    /// simplement s'y brancher comme fournisseur -- toute exception logguée
+    /// ici sort donc désormais en JSON structuré, sans avoir touché cette ligne.
     /// </summary>
     public static WebApplication UseGlobalExceptionHandling(this WebApplication app)
     {

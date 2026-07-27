@@ -1,4 +1,6 @@
 using M1GLS2_infra.Services;
+using Serilog;
+using Serilog.Extensions.Logging;
 
 namespace M1GLS2_infra.Extensions;
 
@@ -31,7 +33,14 @@ public static class VaultBootstrapExtensions
     /// </summary>
     public static async Task<BootstrapResultat> BootstrapVaultAsync(this WebApplicationBuilder builder)
     {
-        using var loggerFactory = LoggerFactory.Create(logging => logging.AddConsole());
+        // "dispose: false" : Log.Logger est le logger GLOBAL Serilog, configuré
+        // et fermé dans Program.cs (Log.CloseAndFlush()) -- ce n'est PAS à ce
+        // "using" local (qui se termine bien avant l'arrêt de l'application)
+        // de le faire. SerilogLoggerFactory se contente ici de rendre le
+        // logger Serilog compatible avec l'interface Microsoft.Extensions.Logging.ILogger
+        // qu'attend VaultSecretService -- même logger, même sortie JSON, juste
+        // adapté à l'interface attendue.
+        using var loggerFactory = new SerilogLoggerFactory(Log.Logger, dispose: false);
         var startupLogger = loggerFactory.CreateLogger("Startup");
 
         var vaultService = new VaultSecretService(
