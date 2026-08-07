@@ -1,12 +1,24 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import "./App.css";
+import { ErrorScreen, LoadingScreen } from "./components/StatusScreens";
 import { keycloak } from "./auth/keycloak";
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
   throw new Error("Élément #root introuvable dans index.html.");
 }
+
+const root = createRoot(rootElement);
+
+// Écran de chargement soigné pendant que keycloak-js tranche la question de
+// l'authentification (au lieu d'un écran blanc).
+root.render(
+  <StrictMode>
+    <LoadingScreen />
+  </StrictMode>,
+);
 
 // On n'affiche l'application QU'APRÈS que keycloak-js ait tranché la
 // question de l'authentification. `onLoad: "login-required"` = si
@@ -23,7 +35,7 @@ keycloak
       throw new Error("Authentification Keycloak impossible.");
     }
 
-    createRoot(rootElement).render(
+    root.render(
       <StrictMode>
         <App />
       </StrictMode>,
@@ -31,6 +43,9 @@ keycloak
   })
   .catch((error) => {
     console.error("Erreur d'initialisation Keycloak :", error);
-    rootElement.innerHTML =
-      "<p>Impossible de contacter Keycloak. Vérifie que la stack Docker tourne (docker compose up).</p>";
+    root.render(
+      <StrictMode>
+        <ErrorScreen />
+      </StrictMode>,
+    );
   });

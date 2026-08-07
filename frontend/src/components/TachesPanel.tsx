@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { ListChecks, ListTodo, Plus } from "lucide-react";
 import { infraApi } from "../api/infraApiClient";
 import { useApiCall } from "../hooks/useApiCall";
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { TacheItem } from "./TacheItem";
+import { Alert, EmptyState, Spinner } from "./ui";
 
 interface TachesPanelProps {
   token: string;
@@ -47,42 +49,92 @@ export function TachesPanel({ token, projetId }: TachesPanelProps) {
     }
   }
 
+  const total = taches.data?.length ?? 0;
+
   return (
     <div className="taches-panel">
-      <h4>Tâches</h4>
+      <div className="subhead">
+        <ListChecks size={15} aria-hidden="true" />
+        Tâches {total > 0 && <span className="badge-count">{total}</span>}
+      </div>
 
-      {taches.error && <p role="alert">{taches.error}</p>}
+      {taches.error && <Alert message={taches.error} />}
 
-      <ul className="taches-liste">
-        {taches.data?.map((tache) => (
-          <TacheItem key={tache.id} token={token} projetId={projetId} tache={tache} onChanged={taches.execute} />
-        ))}
-        {taches.data?.length === 0 && <li className="vide">Aucune tâche pour l'instant.</li>}
-      </ul>
+      {taches.isLoading && (
+        <div className="skeleton-list" aria-hidden="true">
+          <div className="skeleton" style={{ height: 44 }} />
+          <div className="skeleton" style={{ height: 44 }} />
+        </div>
+      )}
+
+      {!taches.isLoading && total === 0 && (
+        <EmptyState
+          mini
+          icon={<ListTodo size={20} />}
+          title="Aucune tâche"
+          description="Ajoutez la première tâche de ce projet ci-dessous."
+        />
+      )}
+
+      {!taches.isLoading && total > 0 && (
+        <ul className="taches-liste">
+          {taches.data?.map((tache) => (
+            <TacheItem
+              key={tache.id}
+              token={token}
+              projetId={projetId}
+              tache={tache}
+              onChanged={taches.execute}
+            />
+          ))}
+        </ul>
+      )}
 
       <form onSubmit={handleSubmit} className="tache-form">
-        <input
-          type="text"
-          placeholder="Titre de la tâche"
-          value={titre}
-          onChange={(e) => setTitre(e.target.value)}
-        />
-        <input
-          type="text"
-          placeholder="Description (optionnelle)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-        <input
-          type="date"
-          value={dateEcheance}
-          onChange={(e) => setDateEcheance(e.target.value)}
-        />
-        <button type="submit" disabled={creation.isLoading}>
-          {creation.isLoading ? "Création..." : "Ajouter une tâche"}
-        </button>
+        <div className="form-grid">
+          <div className="field field-full">
+            <input
+              className="input"
+              type="text"
+              placeholder="Titre de la tâche"
+              aria-label="Titre de la tâche"
+              value={titre}
+              onChange={(e) => setTitre(e.target.value)}
+              required
+            />
+          </div>
+          <div className="field">
+            <input
+              className="input"
+              type="text"
+              placeholder="Description (optionnelle)"
+              aria-label="Description de la tâche"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <input
+              className="input"
+              type="date"
+              aria-label="Date d'échéance"
+              value={dateEcheance}
+              onChange={(e) => setDateEcheance(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-actions">
+          <button
+            className="btn btn-secondary btn-sm"
+            type="submit"
+            disabled={creation.isLoading || !titre.trim()}
+          >
+            {creation.isLoading ? <Spinner /> : <Plus size={15} aria-hidden="true" />}
+            {creation.isLoading ? "Ajout…" : "Ajouter une tâche"}
+          </button>
+        </div>
       </form>
-      {creation.error && <p role="alert">{creation.error}</p>}
+      {creation.error && <Alert message={creation.error} />}
     </div>
   );
 }

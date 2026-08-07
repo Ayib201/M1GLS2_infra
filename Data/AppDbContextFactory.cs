@@ -4,10 +4,6 @@ using Microsoft.EntityFrameworkCore.Design;
 namespace M1GLS2_infra.Data;
 
 /// <summary>
-/// Fabrique utilisée UNIQUEMENT par l'outil en ligne de commande "dotnet ef"
-/// (migrations add / database update), jamais par l'application elle-même
-/// une fois lancée.
-///
 /// Pourquoi une classe séparée ? "dotnet ef" a besoin de construire un
 /// AppDbContext pour inspecter ton modèle (les entités) et générer le SQL
 /// de migration -- mais sans démarrer toute l'application (pas

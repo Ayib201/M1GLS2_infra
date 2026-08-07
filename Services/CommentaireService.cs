@@ -46,7 +46,6 @@ public sealed class CommentaireService : ICommentaireService
             return new ResultatListeCommentaires(commentairesEnCache, ProvientDuCache: true);
         }
 
-        // SIMULATION pour la démo -- voir ProjetService pour le détail.
         await Task.Delay(300);
 
         var commentaires = await _dbContext.Commentaires

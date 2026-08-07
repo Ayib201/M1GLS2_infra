@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { CalendarClock, ChevronRight, Trash2 } from "lucide-react";
 import { infraApi } from "../api/infraApiClient";
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { StatutTache, Tache } from "../types/api";
+import { ORDRE_STATUTS, STATUTS, estEnRetard, formaterDate } from "../lib/format";
 import { CommentairesPanel } from "./CommentairesPanel";
+import { Alert, Spinner } from "./ui";
 
 interface TacheItemProps {
   token: string;
@@ -10,12 +13,6 @@ interface TacheItemProps {
   tache: Tache;
   onChanged: () => void;
 }
-
-const LIBELLES_STATUT: Record<StatutTache, string> = {
-  AFaire: "À faire",
-  EnCours: "En cours",
-  Terminee: "Terminée",
-};
 
 /**
  * Une tâche : son statut peut être changé directement depuis la liste (menu
@@ -49,30 +46,80 @@ export function TacheItem({ token, projetId, tache, onChanged }: TacheItemProps)
     }
   }
 
+  const estTerminee = tache.statut === "Terminee";
+  const enRetard = !estTerminee && estEnRetard(tache.dateEcheance);
+  const panelId = `tache-body-${tache.id}`;
+
   return (
-    <li className="tache-item">
+    <li className={`tache-item${estDepliee ? " open" : ""}`}>
       <div className="tache-ligne">
-        <button className="lien-depliant" onClick={() => setEstDepliee((v) => !v)}>
-          {estDepliee ? "▾" : "▸"} {tache.titre}
+        <button
+          className="disclosure"
+          onClick={() => setEstDepliee((v) => !v)}
+          aria-expanded={estDepliee}
+          aria-controls={panelId}
+        >
+          <span className="chevron" aria-hidden="true">
+            <ChevronRight size={16} />
+          </span>
+          <span className={`tache-title${estTerminee ? " done" : ""}`}>{tache.titre}</span>
         </button>
 
-        <select value={tache.statut} onChange={handleChangementStatut} disabled={changementStatut.isLoading}>
-          {(Object.keys(LIBELLES_STATUT) as StatutTache[]).map((statut) => (
-            <option key={statut} value={statut}>
-              {LIBELLES_STATUT[statut]}
-            </option>
-          ))}
-        </select>
+        <div className="tache-controls">
+          <span className={`badge badge-${STATUTS[tache.statut].tone}`}>
+            {STATUTS[tache.statut].libelle}
+          </span>
 
-        <button onClick={handleSupprimer} disabled={suppression.isLoading}>
-          Supprimer
-        </button>
+          <select
+            className="select"
+            value={tache.statut}
+            onChange={handleChangementStatut}
+            disabled={changementStatut.isLoading}
+            aria-label={`Statut de la tâche ${tache.titre}`}
+          >
+            {ORDRE_STATUTS.map((statut) => (
+              <option key={statut} value={statut}>
+                {STATUTS[statut].libelle}
+              </option>
+            ))}
+          </select>
+
+          <button
+            className="btn btn-danger-ghost btn-icon btn-sm"
+            onClick={handleSupprimer}
+            disabled={suppression.isLoading}
+            aria-label={`Supprimer la tâche ${tache.titre}`}
+            title="Supprimer la tâche"
+          >
+            {suppression.isLoading ? <Spinner /> : <Trash2 size={15} aria-hidden="true" />}
+          </button>
+        </div>
       </div>
 
-      {tache.description && <p className="tache-description">{tache.description}</p>}
-      {changementStatut.error && <p role="alert">{changementStatut.error}</p>}
+      {changementStatut.error && (
+        <div style={{ padding: "0 0.75rem 0.5rem 2.05rem" }}>
+          <Alert message={changementStatut.error} />
+        </div>
+      )}
+      {suppression.error && (
+        <div style={{ padding: "0 0.75rem 0.5rem 2.05rem" }}>
+          <Alert message={suppression.error} />
+        </div>
+      )}
 
-      {estDepliee && <CommentairesPanel token={token} projetId={projetId} tacheId={tache.id} />}
+      {estDepliee && (
+        <div className="tache-body" id={panelId}>
+          {tache.description && <p className="tache-description">{tache.description}</p>}
+          {tache.dateEcheance && (
+            <p className={`badge-due${enRetard ? " overdue" : ""}`} style={{ marginBottom: "0.6rem" }}>
+              <CalendarClock size={14} aria-hidden="true" />
+              Échéance : {formaterDate(tache.dateEcheance)}
+              {enRetard && " · en retard"}
+            </p>
+          )}
+          <CommentairesPanel token={token} projetId={projetId} tacheId={tache.id} />
+        </div>
+      )}
     </li>
   );
 }

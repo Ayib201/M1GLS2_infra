@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { MessagesSquare, Send, Trash2 } from "lucide-react";
 import { infraApi } from "../api/infraApiClient";
 import { useApiCall } from "../hooks/useApiCall";
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { Alert, Spinner } from "./ui";
 
 interface CommentairesPanelProps {
   token: string;
@@ -49,36 +51,62 @@ export function CommentairesPanel({ token, projetId, tacheId }: CommentairesPane
     }
   }
 
+  const total = commentaires.data?.length ?? 0;
+
   return (
     <div className="commentaires-panel">
-      <h5>Commentaires</h5>
+      <div className="subhead">
+        <MessagesSquare size={15} aria-hidden="true" />
+        Commentaires {total > 0 && <span className="badge-count">{total}</span>}
+      </div>
 
-      {commentaires.error && <p role="alert">{commentaires.error}</p>}
+      {commentaires.error && <Alert message={commentaires.error} />}
 
-      <ul className="commentaires-liste">
-        {commentaires.data?.map((commentaire) => (
-          <li key={commentaire.id}>
-            <span>{commentaire.contenu}</span>
-            <button onClick={() => handleSupprimer(commentaire.id)} disabled={suppression.isLoading}>
-              Supprimer
-            </button>
-          </li>
-        ))}
-        {commentaires.data?.length === 0 && <li className="vide">Aucun commentaire pour l'instant.</li>}
-      </ul>
+      {!commentaires.isLoading && total === 0 && (
+        <p className="empty-inline">Aucun commentaire pour l'instant — lancez la discussion.</p>
+      )}
 
-      <form onSubmit={handleSubmit} className="commentaire-form">
+      {total > 0 && (
+        <ul className="commentaires-liste">
+          {commentaires.data?.map((commentaire) => (
+            <li key={commentaire.id} className="commentaire-item">
+              <span className="avatar" aria-hidden="true">
+                <MessagesSquare size={13} />
+              </span>
+              <span className="commentaire-contenu">{commentaire.contenu}</span>
+              <button
+                className="btn btn-danger-ghost btn-icon btn-sm"
+                onClick={() => handleSupprimer(commentaire.id)}
+                disabled={suppression.isLoading}
+                aria-label="Supprimer le commentaire"
+                title="Supprimer le commentaire"
+              >
+                <Trash2 size={14} aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form onSubmit={handleSubmit} className="inline-form">
         <input
+          className="input"
           type="text"
-          placeholder="Ajouter un commentaire..."
+          placeholder="Ajouter un commentaire…"
+          aria-label="Ajouter un commentaire"
           value={contenu}
           onChange={(e) => setContenu(e.target.value)}
         />
-        <button type="submit" disabled={creation.isLoading}>
-          {creation.isLoading ? "Envoi..." : "Envoyer"}
+        <button
+          className="btn btn-primary btn-sm"
+          type="submit"
+          disabled={creation.isLoading || !contenu.trim()}
+        >
+          {creation.isLoading ? <Spinner /> : <Send size={14} aria-hidden="true" />}
+          {creation.isLoading ? "Envoi…" : "Envoyer"}
         </button>
       </form>
-      {creation.error && <p role="alert">{creation.error}</p>}
+      {creation.error && <Alert message={creation.error} />}
     </div>
   );
 }
