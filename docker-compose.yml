@@ -87,40 +87,29 @@ services:
   # Keycloak — IAM : authentification SSO / OAuth2 / OIDC
   # ---------------------------------------------------------------------
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0
-    container_name: keycloak
-    command: start-dev --import-realm
-    environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
-      # --- Fixe l'URL "officielle" de Keycloak : TOUS les liens qu'il génère
-      # (page de connexion, redirections, et le champ "issuer" des jetons)
-      # utiliseront "http://localhost:8000", quelle que soit l'adresse
-      # réellement utilisée pour l'atteindre. On choisit "localhost:8000" --
-      # l'adresse de Kong -- car c'est la seule que le NAVIGATEUR sait
-      # résoudre sans configuration supplémentaire sur la machine. Kong
-      # route ensuite en interne vers Keycloak (voir kong/kong.yml, services
-      # "keycloak-realms" / "keycloak-resources").
-      # Côté API (dans le réseau Docker), ceci crée un nouveau problème
-      # symétrique : elle ne peut pas non plus résoudre "localhost:8000"
-      # (qui, depuis un conteneur, désigne le conteneur lui-même). C'est
-      # géré côté C# par KeycloakInternalRoutingHandler (voir
-      # Extensions/KeycloakAuthenticationExtensions.cs) : l'API continue de
-      # parler à Keycloak directement via "keycloak:8080" en interne, tout
-      # en sachant que les jetons contiennent "localhost:8000".
-      KC_HOSTNAME: localhost
-      KC_HOSTNAME_PORT: "8000"
-      KC_HOSTNAME_STRICT: "false"
-      KC_HTTP_ENABLED: "true"
-    ports:
-      - "8080:8080"
-    volumes:
-      # Réalm pré-configuré (client + utilisateur de test), importé automatiquement
-      # au démarrage grâce à --import-realm : pas besoin de tout recréer à la main
-      # à chaque `docker compose down`.
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
-    networks:
-      - infra-network
+      image: quay.io/keycloak/keycloak:24.0
+      container_name: keycloak
+      command: start-dev --import-realm
+      environment:
+        KEYCLOAK_ADMIN: admin
+        KEYCLOAK_ADMIN_PASSWORD: admin
+        # URL publique (realm, login, issuer des jetons) : via Kong, port 8000
+        KC_HOSTNAME: localhost
+        KC_HOSTNAME_PORT: "8000"
+        KC_HOSTNAME_STRICT: "false"
+        KC_HTTP_ENABLED: "true"
+        # --- AJOUT : URL dédiée pour la console d'admin, accessible en direct
+        # sur le port 8080 (celui réellement publié par ce conteneur), sans
+        # passer par Kong. Sans cette variable, l'admin console hérite de
+        # KC_HOSTNAME/KC_HOSTNAME_PORT et génère ses appels vers localhost:8000,
+        # où Keycloak lui-même n'écoute pas -- d'où la page blanche/cassée.
+        KC_HOSTNAME_ADMIN_URL: "http://localhost:8080"
+      ports:
+        - "8080:8080"
+      volumes:
+        - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      networks:
+        - infra-network 
 
   # ---------------------------------------------------------------------
   # Redis — cache applicatif en mémoire (voir Services/CacheService.cs).
